@@ -62,7 +62,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: adeade151592
           password: ${{ secrets.GHCR_TOKEN }}
       - name: Build and push
         uses: docker/build-push-action@v5

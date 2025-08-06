@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
-  issues: write
   packages: write
 
 jobs:
@@ -27,7 +25,10 @@ jobs:
           go-version-file: go.mod
 
       - name: Start Docker Compose
-        run: docker compose up -d
+        run: |
+          docker compose up -d
+        env:
+          DOCKER_COMPOSE_COMMAND_OPTS: "-inMemory"
 
       - name: Run Tests
         run: |
@@ -36,8 +37,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
-          AWS_DEFAULT_REGION: 'us-west-2'
-          DYNAMODB_LOCAL_ENDPOINT: "http://localhost:8000"
+          AWS_DEFAULT_REGION: us-west-2
+          DYNAMODB_LOCAL_ENDPOINT: http://localhost:8000
 
   build:
     needs: test
@@ -46,20 +47,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get repo and owner in lowercase
-        id: vars
-        run: |
-          echo "owner_lc=${OWNER,,}" >> "$GITHUB_OUTPUT"
-          echo "repo_lc=${REPO,,}" >> "$GITHUB_OUTPUT"
-        env:
-          OWNER: ${{ github.repository_owner }}
-          REPO: ${{ github.event.repository.name }}
-
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ steps.vars.outputs.owner_lc }}/${{ steps.vars.outputs.repo_lc }}-ci
+          images: ghcr.io/adeade151592/user-management-service-cicd
           tags: |
             type=sha
             type=ref,event=branch
@@ -71,13 +63,48 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: adeade151592
-          password: ${{ secrets.GHCR_PAT }}
+          password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Create Build Cache Directory
-        run: mkdir -
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Lowercase image reference
+        id: image
+        run: |
+          echo "owner_lc=${OWNER,,}" >> "$GITHUB_OUTPUT"
+          echo "repo_lc=${REPO,,}" >> "$GITHUB_OUTPUT"
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+
+      - name: Update docker-compose.yaml with new image
+        uses: fjogeleit/yaml-update-action@v0.16.1
+        with:
+          valueFile: 'deploy/docker-compose.yaml'
+          propertyPath: services["user-management-service"].image
+          value: ghcr.io/${{ steps.image.outputs.owner_lc }}/${{ steps.image.outputs.repo_lc }}:${{ github.sha }}
+          commitChange: ${{ github.event_name != 'pull_request' }}
+          targetBranch: main
+          masterBranchName: main
+          createPR: ${{ github.event_name != 'pull_request' }}
+          branch: 'deploy'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          message: 'Update image tag to ${{ github.sha }}'
 

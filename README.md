@@ -95,3 +95,4 @@ docker compose -f deploy/docker-compose.yaml up -d
 ```
 # Test commit to trigger workflow
 
+# Test authentication

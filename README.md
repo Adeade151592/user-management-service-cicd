@@ -97,3 +97,4 @@ docker compose -f deploy/docker-compose.yaml up -d
 
 # Test authentication
 # Pipeline trigger - Wed  6 Aug 2025 09:54:46 BST
+# Pipeline run #2 - 10:06:25

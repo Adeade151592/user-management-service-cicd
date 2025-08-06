@@ -9,7 +9,7 @@ services:
     ports:
       - '8000:8000'
   user-management-service:
-    image: ghcr.io/adeade151592/user-management-service-cicd:c25bcb65307cdbbfd0450d50cefe5f902724bc09
+    image: ghcr.io/adeade151592/user-management-service-cicd:f24b22d4f97007993acd74fbf8f881460997fdf1
     container_name: user-management-service
     ports:
       - '1324:1324'
